@@ -1,110 +1,181 @@
-# FHEVM Hardhat Template
+# HoloToken
 
-A Hardhat-based template for developing Fully Homomorphic Encryption (FHE) enabled Solidity smart contracts using the
-FHEVM protocol by Zama.
+HoloToken is a privacy-first on-chain mining game built on Zama FHEVM. Each wallet can mint a single Miner NFT that holds an
+encrypted power value (100 to 500). Once every 24 hours, the Miner can mine Confidential Gold equal to its hidden power. The
+entire flow is enforced on-chain, while power and balances stay encrypted.
 
-## Quick Start
+## Project Summary
 
-For detailed instructions see:
-[FHEVM Hardhat Quick Start Tutorial](https://docs.zama.ai/protocol/solidity-guides/getting-started/quick-start-tutorial)
+- A minimal mining loop with real on-chain randomness and encrypted rewards.
+- Miner power is generated on-chain as encrypted data and never revealed unless the owner decrypts it.
+- Gold balances are confidential and can be decrypted by the owner through the Zama relayer.
+- One Miner per wallet is enforced to keep the economy simple and fair.
 
-### Prerequisites
+## Problems Solved
 
-- **Node.js**: Version 20 or higher
-- **npm or yarn/pnpm**: Package manager
+- Prevents public trait sniping and targeted strategies by keeping Miner power private.
+- Avoids visible balances and farm detection by storing Gold as encrypted balances.
+- Removes off-chain trust for randomness and reward calculation by performing them on-chain in FHE.
+- Provides a predictable, enforceable mining cadence (24 hours) without centralized timers.
 
-### Installation
+## Advantages
 
-1. **Install dependencies**
+- True on-chain randomness under FHE, not a server-side RNG.
+- Encrypted gameplay stats and balances reduce information asymmetry.
+- Simple, auditable contract surface area with strict mint and cooldown rules.
+- No off-chain database or game server is required.
+- Frontend supports self-service decryption without storing secrets on-chain.
 
-   ```bash
-   npm install
-   ```
+## Core Gameplay
 
-2. **Set up environment variables**
+1. Mint exactly one Miner NFT per wallet.
+2. The Miner receives a random encrypted power between 100 and 500.
+3. Once per 24 hours, mine Confidential Gold equal to the Miner power.
+4. Decrypt Miner power and Gold balance using the Zama relayer.
 
-   ```bash
-   npx hardhat vars set MNEMONIC
+## Architecture Overview
 
-   # Set your Infura API key for network access
-   npx hardhat vars set INFURA_API_KEY
+### MinerNFT (ERC721)
 
-   # Optional: Set Etherscan API key for contract verification
-   npx hardhat vars set ETHERSCAN_API_KEY
-   ```
+- Mints one Miner per wallet and blocks additional mints permanently.
+- Generates encrypted power with `FHE.randEuint16` and bounds it to 100 to 500.
+- Enforces a 24 hour cooldown per token.
+- Calls the Gold contract to mint encrypted Gold after each mine.
+- Keeps the encrypted power value accessible only to the owner.
 
-3. **Compile and test**
+### ConfidentialGold (ERC7984)
 
-   ```bash
-   npm run compile
-   npm run test
-   ```
+- Confidential token with encrypted balances.
+- Only the MinerNFT contract can mint.
+- Supports owner-only decryption via the relayer.
 
-4. **Deploy to local network**
+### Zama Relayer
 
-   ```bash
-   # Start a local FHEVM-ready node
-   npx hardhat node
-   # Deploy to local network
-   npx hardhat deploy --network localhost
-   ```
+- Handles user decryption requests for encrypted handles (power, balance).
+- Requires wallet signature and ephemeral keypairs.
 
-5. **Deploy to Sepolia Testnet**
+## Tech Stack
 
-   ```bash
-   # Deploy to Sepolia
-   npx hardhat deploy --network sepolia
-   # Verify contract on Etherscan
-   npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
-   ```
+### Smart Contracts
 
-6. **Test on Sepolia Testnet**
+- Solidity 0.8.27
+- Hardhat + hardhat-deploy
+- Zama FHEVM libraries
+- OpenZeppelin ERC721 + ERC7984 (confidential token)
 
-   ```bash
-   # Once deployed, you can run a simple test on Sepolia.
-   npx hardhat test --network sepolia
-   ```
+### Frontend
 
-## 📁 Project Structure
+- React + Vite
+- wagmi + viem for reads
+- ethers for writes
+- RainbowKit wallet UI
+- Zama relayer SDK for decryption
+
+## Project Structure
 
 ```
-fhevm-hardhat-template/
-├── contracts/           # Smart contract source files
-│   └── FHECounter.sol   # Example FHE counter contract
-├── deploy/              # Deployment scripts
-├── tasks/               # Hardhat custom tasks
-├── test/                # Test files
-├── hardhat.config.ts    # Hardhat configuration
-└── package.json         # Dependencies and scripts
+contracts/                 MinerNFT and ConfidentialGold contracts
+deploy/                    Deployment scripts
+tasks/                     Mining and frontend sync tasks
+test/                      Contract tests
+home/                      React frontend (Vite)
+docs/                      Zama references
 ```
 
-## 📜 Available Scripts
+## Setup Requirements
 
-| Script             | Description              |
-| ------------------ | ------------------------ |
-| `npm run compile`  | Compile all contracts    |
-| `npm run test`     | Run all tests            |
-| `npm run coverage` | Generate coverage report |
-| `npm run lint`     | Run linting checks       |
-| `npm run clean`    | Clean build artifacts    |
+- Node.js 20+
+- npm
+- Sepolia RPC access (INFURA API key)
+- EOA private key for deployment (no mnemonic)
 
-## 📚 Documentation
+Create a `.env` file in the repo root with:
 
-- [FHEVM Documentation](https://docs.zama.ai/fhevm)
-- [FHEVM Hardhat Setup Guide](https://docs.zama.ai/protocol/solidity-guides/getting-started/setup)
-- [FHEVM Testing Guide](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat/write_test)
-- [FHEVM Hardhat Plugin](https://docs.zama.ai/protocol/solidity-guides/development-guide/hardhat)
+```
+INFURA_API_KEY=...
+PRIVATE_KEY=...
+ETHERSCAN_API_KEY=...  # optional, for verification
+```
 
-## 📄 License
+## Contract Workflow
 
-This project is licensed under the BSD-3-Clause-Clear License. See the [LICENSE](LICENSE) file for details.
+### Install and Compile
 
-## 🆘 Support
+```bash
+npm install
+npm run compile
+```
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/zama-ai/fhevm/issues)
-- **Documentation**: [FHEVM Docs](https://docs.zama.ai)
-- **Community**: [Zama Discord](https://discord.gg/zama)
+### Run Tests
 
----
+```bash
+npm run test
+```
 
-**Built with ❤️ by the Zama team**
+### Deploy Locally
+
+```bash
+npx hardhat node
+npx hardhat deploy --network localhost
+```
+
+### Deploy to Sepolia
+
+```bash
+npx hardhat deploy --network sepolia
+```
+
+### Sync Frontend ABIs and Addresses
+
+The frontend does not use JSON configuration. It consumes a generated TypeScript file built from
+`deployments/sepolia`:
+
+```bash
+npx hardhat task:sync-frontend --network sepolia
+```
+
+This generates `home/src/config/contracts.ts` with the contract addresses and ABI.
+
+## Useful Tasks
+
+```bash
+# Print contract addresses
+npx hardhat task:miner:address --network sepolia
+
+# Mint a Miner NFT
+npx hardhat task:miner:mint --network sepolia
+
+# Mine Gold (use your token id)
+npx hardhat task:miner:mine --tokenid <TOKEN_ID> --network sepolia
+
+# Decrypt miner power
+npx hardhat task:miner:decrypt-power --tokenid <TOKEN_ID> --network sepolia
+
+# Decrypt gold balance for the signer
+npx hardhat task:gold:decrypt-balance --network sepolia
+```
+
+## Frontend Workflow
+
+```bash
+cd home
+npm install
+npm run dev
+```
+
+- Connect your wallet on Sepolia.
+- Mint a Miner NFT.
+- Mine once every 24 hours.
+- Decrypt power and balances via the relayer UI.
+
+## Future Roadmap
+
+- Miner upgrade path with optional encrypted upgrades.
+- Additional resources and crafting loops that stay confidential.
+- Multi-chain deployment once FHEVM networks are available.
+- Optional reveal mechanics for competitive leaderboards.
+- Gas optimization and batch mining flows.
+
+## License
+
+BSD-3-Clause-Clear. See `LICENSE`.
